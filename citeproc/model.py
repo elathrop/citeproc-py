@@ -1,4 +1,3 @@
-
 import re
 import unicodedata
 from functools import cmp_to_key
@@ -921,7 +920,7 @@ class Date(CitationStylesElement, Parent, Formatted, Affixed, Delimited):
 
         year_suffix = None
         if (variable == 'issued'
-                and not self.get_root().just_looking
+                and not context.get_root().just_looking
                 and not context.get_root().has_explicit_year_suffix_element()
                 and not item.get('has_done_year_suffix', False)):
             try:

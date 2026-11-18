@@ -156,3 +156,31 @@ class TestDisambiguation(TestCase):
 
         self.assertIs(root.disambig_request, previous_request)
         self.assertFalse(root.just_looking)
+
+    def test_localized_date_probe_suppresses_existing_year_suffix(self):
+        style = CitationStylesStyle(BytesIO(b'''\
+            <style xmlns="http://purl.org/net/xbiblio/csl" version="1.0">
+              <info><title>Test</title><id>test</id></info>
+              <citation disambiguate-add-year-suffix="true">
+                <layout>
+                  <names variable="author"><name/></names>
+                  <date variable="issued" form="text" prefix=" "/>
+                </layout>
+              </citation>
+            </style>
+        '''), validate=False)
+        source = CiteProcJSON([{
+            'id': 'a',
+            'type': 'book',
+            'author': [{'family': 'Smith'}],
+            'issued': {'date-parts': [[1980]]},
+            'year_suffix': 'z',
+        }])
+        bibliography = CitationStylesBibliography(style, source, formatter=plain)
+        citation = Citation([CitationItem('a')])
+        bibliography.register(citation)
+
+        layout = bibliography.style.root.citation.layout
+        probe = get_ambiguous_cite(bibliography.items[0], layout)
+
+        self.assertEqual(probe, 'Smith 1980')
