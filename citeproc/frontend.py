@@ -8,7 +8,6 @@ from . import LOCALES_PATH, SCHEMA_PATH, STYLES_PATH
 from .formatter import html
 from .model import CitationStylesElement
 
-
 _INPUT_YEAR_SUFFIX_ORIGINALLY_ABSENT = object()
 
 
