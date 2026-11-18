@@ -153,16 +153,29 @@ class Style(CitationStylesElement):
     just_looking = False      # set True during probe renders to suppress disambiguation output
     disambig_request = None   # AmbigConfig set during name-expansion probe renders
 
-    _UNSET = object()
-    _has_explicit_year_suffix = _UNSET
+    def has_explicit_year_suffix_element(self, layout):
+        """Return whether a layout or one of its macros renders year-suffix."""
+        visited_macros = set()
 
-    def has_explicit_year_suffix_element(self):
-        """Return True if any cs:text[@variable="year-suffix"] exists in the style."""
-        if self._has_explicit_year_suffix is self._UNSET:
-            self._has_explicit_year_suffix = bool(
-                self.xpath_search('.//cs:text[@variable="year-suffix"]')
-            )
-        return self._has_explicit_year_suffix
+        def contains_year_suffix(element):
+            if element.xpath_search('.//cs:text[@variable="year-suffix"]'):
+                return True
+
+            for macro_call in element.xpath_search('.//cs:text[@macro]'):
+                macro_name = macro_call.get('macro')
+                if macro_name in visited_macros:
+                    continue
+                visited_macros.add(macro_name)
+                try:
+                    macro = self.get_macro(macro_name)
+                except IndexError:
+                    continue
+                if contains_year_suffix(macro):
+                    return True
+
+            return False
+
+        return contains_year_suffix(layout)
 
     def set_locale_list(self, output_locale, validate=True):
         """Set up list of locales in which to search for localizable units"""
@@ -906,13 +919,15 @@ class Date(CitationStylesElement, Parent, Formatted, Affixed, Delimited):
         return text
 
     def process(self, item, variable=None, show_parts=None, context=None,
-                **kwargs):
+                render_layout=None, **kwargs):
         if variable is None:
             variable = self.get('variable')
         if show_parts is None:
             show_parts = ['year', 'month', 'day']
         if context is None:
             context = self
+        if render_layout is None:
+            render_layout = context.get_layout()
 
         # During probe renders, accessed dates are excluded from the ambig key.
         if context.get_root().just_looking and variable == 'accessed':
@@ -921,7 +936,9 @@ class Date(CitationStylesElement, Parent, Formatted, Affixed, Delimited):
         year_suffix = None
         if (variable == 'issued'
                 and not context.get_root().just_looking
-                and not context.get_root().has_explicit_year_suffix_element()
+                and not context.get_root().has_explicit_year_suffix_element(
+                    render_layout,
+                )
                 and not item.get('has_done_year_suffix', False)):
             try:
                 year_suffix = item.reference['year_suffix']
@@ -935,7 +952,8 @@ class Date(CitationStylesElement, Parent, Formatted, Affixed, Delimited):
             if date_parts is not None:
                 show_parts = date_parts.split('-')
             return localized_date.render(item, variable,
-                                         show_parts=show_parts, context=self)
+                                         show_parts=show_parts, context=self,
+                                         render_layout=render_layout)
         else:
             date_or_range = item.reference[variable.replace('-', '_')]
             if not date_or_range:
